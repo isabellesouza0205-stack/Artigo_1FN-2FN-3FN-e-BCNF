@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Da planilha bagunçada ao modelo relacional: 1FN, 2FN, 3FN e BCNF</title>
+<meta name="description" content="Transformamos a planilha de pedidos de uma loja em tabelas menores com PostgreSQL e descobrimos onde a 3FN não basta.">
+<link rel="stylesheet" href="css/style.css">
+<style>
+/* Estilos básicos embutidos. Se preferir, mova tudo para css/style.css e apague o <style>. */
+:root{--bg:#f6f8f9;--card:#fff;--ink:#1b2430;--mut:#55606e;--line:#d5dbe1;--acc:#1f7a4d;--hl:#ffe9a8;--bad:#b3261e;--code:#eef2f4}
+@media(prefers-color-scheme:dark){:root{--bg:#14191f;--card:#1c232b;--ink:#e8edf2;--mut:#a3aeba;--line:#33404d;--acc:#5cc48f;--hl:#5a4a12;--bad:#ff8a80;--code:#10151a}}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:4.5rem}
+body{margin:0;background:var(--bg);color:var(--ink);font:1.08rem/1.7 "Source Serif 4",Georgia,serif}
+h1,h2,h3,nav,.meta,figcaption,th,footer,.card{font-family:"Work Sans",system-ui,sans-serif}
+a{color:var(--acc)}
+a:focus-visible,summary:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+header.top{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line);padding:.6rem 1rem;display:flex;flex-wrap:wrap;gap:.4rem 1.2rem;align-items:center}
+header.top strong{margin-right:auto}
+header.top a{text-decoration:none;font-size:.9rem}
+main,footer,.hero{max-width:46rem;margin:0 auto;padding:0 1rem}
+.hero{padding-top:2.5rem}
+h1{font-size:clamp(1.9rem,5vw,2.8rem);line-height:1.15;margin:.2rem 0 .8rem}
+.sub{font-size:1.25rem;color:var(--mut);margin:0 0 1.2rem}
+.meta{font-size:.9rem;color:var(--mut)}
+.by{display:flex;flex-wrap:wrap;gap:.8rem;align-items:center;margin:1rem 0}
+.av{width:44px;height:44px;border-radius:50%;background:var(--acc);color:#fff;display:grid;place-items:center;font:600 .9rem "Work Sans",sans-serif;flex:none}
+h2{font-size:1.6rem;margin:3rem 0 .6rem}
+h3{font-size:1.15rem;margin:1.6rem 0 .4rem}
+.toc{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:1rem 1.4rem;margin:1.5rem 0}
+.toc ol{margin:.4rem 0 0;padding-left:1.2rem;font-size:.95rem}
+figure{margin:1.5rem 0}
+figcaption{font-size:.88rem;color:var(--mut);margin-top:.5rem}
+.sc{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--card)}
+table{border-collapse:collapse;width:100%;font-size:.9rem;min-width:30rem}
+th,td{border:1px solid var(--line);padding:.4rem .6rem;text-align:left;white-space:nowrap}
+th{background:var(--code)}
+td.hl{background:var(--hl)}
+td.bad{color:var(--bad);font-weight:600}
+pre{background:var(--code);border:1px solid var(--line);border-radius:6px;padding:1rem;overflow-x:auto;font:.85rem/1.55 "Fira Code",Consolas,monospace;margin:1rem 0 .3rem}
+.k{color:#0b5cad;font-weight:600}.c{color:var(--mut);font-style:italic}.s{color:#9a3b00}
+@media(prefers-color-scheme:dark){.k{color:#7fb8ff}.s{color:#ffb27a}}
+.note{border-left:4px solid var(--acc);background:var(--card);padding:.7rem 1rem;margin:1.2rem 0;border-radius:0 6px 6px 0}
+details{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:.7rem 1rem;margin:1.5rem 0}
+summary{cursor:pointer;font:600 1rem "Work Sans",sans-serif}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr));gap:1rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:1rem;font-size:.92rem}
+.card .av{width:64px;height:64px;font-size:1.2rem;margin-bottom:.5rem}
+footer{border-top:1px solid var(--line);margin-top:3rem;padding:1.5rem 1rem 3rem;font-size:.9rem;color:var(--mut)}
+code{font-family:"Fira Code",Consolas,monospace;font-size:.9em}
+svg text{font:12px "Work Sans",sans-serif;fill:var(--ink)}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <strong>Normalização na prática</strong>
+  <nav aria-label="Navegação principal">
+    <a href="#intro">Introdução</a> &nbsp;
+    <a href="#formas">1FN a 3FN</a> &nbsp;
+    <a href="#bcnf">BCNF</a> &nbsp;
+    <a href="#links">Links</a> &nbsp;
+    <a href="#autores">Autores</a>
+  </nav>
+</header>
+
+<div class="hero">
+  <h1>Da planilha bagunçada ao modelo relacional: 1FN, 2FN, 3FN e BCNF na prática</h1>
+  <p class="sub">Vamos transformar a planilha de pedidos de uma loja em tabelas menores e descobrir onde a 3FN ainda não basta.</p>
+  <div class="by">
+    <!-- Troque cada .av por <img src="img/nome.jpg" alt="Foto de Nome" width="44" height="44" style="border-radius:50%"> -->
+    <span class="av" aria-hidden="true">I</span><span class="av" aria-hidden="true">G</span><span class="av" aria-hidden="true">B</span><span class="av" aria-hidden="true">G</span>
+    <span class="meta">[Nome 1], Gabriel Venancio Lima, [Nome 3] e Gustavo Oliveira Andrade<br>Publicado em 15/10/2026 · Revisado em 15/10/2026</span>
+  </div>
+</div>
+
+<main>
+<nav class="toc" aria-label="Índice do artigo">
+  <strong>Neste artigo</strong>
+  <ol>
+    <li><a href="#intro">Um telefone, doze linhas</a></li>
+    <li><a href="#planilha">A planilha com problema</a></li>
+    <li><a href="#formas">1FN, 2FN e 3FN passo a passo</a></li>
+    <li><a href="#bcnf">Quando a 3FN não basta: BCNF</a></li>
+    <li><a href="#erros">Erros comuns e limitações</a></li>
+    <li><a href="#comecar">Como começar na área</a></li>
+    <li><a href="#links">Links para ler depois</a> e <a href="#refs">Referências</a></li>
+  </ol>
+</nav>
+
+<section id="intro">
+<h2>Um telefone, doze linhas</h2>
+<p>Imagine que uma cliente da nossa loja de papelaria mudou de telefone. Na planilha de pedidos, o número dela aparece em doze linhas. Corrigimos onze e esquecemos uma. Agora a mesma cliente tem dois telefones, e ninguém sabe qual é o certo.</p>
+<p>Esse tipo de problema tem nome: <strong>redundância</strong>, que é o mesmo dado guardado em vários lugares. Neste artigo vamos mostrar como as <strong>formas normais</strong> (1FN, 2FN, 3FN e BCNF) organizam uma tabela para que cada fato fique guardado uma única vez. Você vai aprender a enxergar o problema numa tabela, corrigi-la com SQL e saber quando parar.</p>
+<p>Usamos <strong>PostgreSQL 16</strong> com o pgAdmin 4 e apenas dados fictícios. Todos os scripts estão na pasta <a href="sql/">sql/</a> do <a href="https://github.com/isabellesouza0205-stack/artigo_desnormaliza-o-">repositório</a>.</p>
+</section>
+
+<section id="planilha">
+<h2>A planilha com problema</h2>
+<p>Esta é a nossa tabela única, <code>pedidos_planilha</code>. Cada linha é um produto de um pedido.</p>
+<figure>
+  <div class="sc"><table aria-describedby="f1">
+    <tr><th>id_pedido</th><th>cliente</th><th>telefone</th><th>cep</th><th>cidade</th><th>produto</th><th>preco_unit</th><th>qtd</th></tr>
+    <tr><td>1</td><td>Ana Souza</td><td class="hl">11 90000-0001</td><td>01001-000</td><td>São Paulo</td><td>Caderno</td><td>18,90</td><td>2</td></tr>
+    <tr><td>1</td><td>Ana Souza</td><td class="hl">11 90000-0001</td><td>01001-000</td><td>São Paulo</td><td>Caneta</td><td>3,50</td><td>5</td></tr>
+    <tr><td>2</td><td>Bruno Lima</td><td>21 90000-0002</td><td>20040-002</td><td>Rio de Janeiro</td><td>Caderno</td><td>18,90</td><td>1</td></tr>
+  </table></div>
+  <figcaption id="f1">Figura 1. A planilha original. Em amarelo, o telefone da Ana repetido em cada item do pedido, e o preço do caderno repetido em pedidos diferentes.</figcaption>
+</figure>
+<p>Dessa repetição nascem três <strong>anomalias</strong>:</p>
+<ul>
+  <li><strong>Atualização:</strong> mudar o telefone da Ana exige alterar todas as linhas dela. Esquecer uma deixa o dado inconsistente.</li>
+  <li><strong>Inserção:</strong> não dá para cadastrar um produto novo enquanto ninguém o comprou, porque toda linha precisa de um pedido.</li>
+  <li><strong>Exclusão:</strong> se apagarmos o único pedido que tem a caneta, o preço da caneta some junto.</li>
+</ul>
+<pre><code><span class="c">-- sql/01_planilha_inicial.sql | PostgreSQL 16 | dados fictícios</span>
+<span class="k">UPDATE</span> pedidos_planilha <span class="k">SET</span> telefone = <span class="s">'11 98888-0001'</span>
+<span class="k">WHERE</span> id_pedido = 1 <span class="k">AND</span> produto = <span class="s">'Caderno'</span>;  <span class="c">-- e a linha da Caneta?</span></code></pre>
+<p class="meta"><a href="sql/01_planilha_inicial.sql">Ver o script completo</a></p>
+</section>
+
+<section id="formas">
+<h2>1FN, 2FN e 3FN passo a passo</h2>
+
+<h3>1FN: uma informação por célula</h3>
+<p>Na prática, a planilha às vezes traz vários produtos na mesma célula, como "Caderno, Caneta". Assim não conseguimos somar quantidades nem filtrar por produto. A <strong>1FN</strong> pede valores <strong>atômicos</strong>, ou seja, indivisíveis: cada produto do pedido vai para a sua própria linha. A tabela da Figura 1 já está assim, e por isso já está na 1FN.</p>
+<p>Antes de seguir, precisamos de dois termos. A <strong>chave primária</strong> é a coluna (ou o conjunto de colunas) que identifica uma linha sem repetição. Aqui ela é o par <code>(id_pedido, produto)</code>. Uma <strong>dependência funcional</strong> <code>A → B</code> significa que, sabendo o valor de A, sabemos o único valor possível de B. Por exemplo, <code>produto → preco_unit</code>.</p>
+
+<h3>2FN: nada pode depender de só uma parte da chave</h3>
+<p>O preço depende apenas do produto, e o telefone depende apenas do pedido. Nenhum dos dois depende do par inteiro. Isso é uma <strong>dependência parcial</strong>, e é ela que causa a repetição da Figura 1. A <strong>2FN</strong> manda separar:</p>
+<ul>
+  <li><code>produtos</code> (id_produto, nome, preco_unit)</li>
+  <li><code>pedidos</code> (id_pedido, cliente, telefone, cep, cidade)</li>
+  <li><code>itens_pedido</code> (id_pedido, id_produto, quantidade)</li>
+</ul>
+
+<h3>3FN: nada pode depender de quem não é chave</h3>
+<p>Em <code>pedidos</code>, a cidade depende do CEP, e o telefone depende do cliente, não do pedido. Temos <strong>dependências transitivas</strong>: <code>id_pedido → cep → cidade</code>. A <strong>3FN</strong> separa cada uma em sua tabela.</p>
+<pre><code><span class="c">-- sql/04_3fn.sql | PostgreSQL 16</span>
+<span class="k">CREATE TABLE</span> ceps     (cep <span class="k">VARCHAR</span>(9) <span class="k">PRIMARY KEY</span>, cidade <span class="k">VARCHAR</span>(60) <span class="k">NOT NULL</span>);
+<span class="k">CREATE TABLE</span> clientes (id_cliente <span class="k">SERIAL PRIMARY KEY</span>, nome <span class="k">VARCHAR</span>(100),
+                       telefone <span class="k">VARCHAR</span>(20), cep <span class="k">VARCHAR</span>(9) <span class="k">REFERENCES</span> ceps);
+<span class="k">CREATE TABLE</span> produtos (id_produto <span class="k">SERIAL PRIMARY KEY</span>, nome <span class="k">VARCHAR</span>(100),
+                       preco_unit <span class="k">NUMERIC</span>(10,2));
+<span class="k">CREATE TABLE</span> pedidos  (id_pedido <span class="k">SERIAL PRIMARY KEY</span>,
+                       id_cliente <span class="k">INT REFERENCES</span> clientes);
+<span class="k">CREATE TABLE</span> itens_pedido (
+  id_pedido  <span class="k">INT REFERENCES</span> pedidos,
+  id_produto <span class="k">INT REFERENCES</span> produtos,
+  quantidade <span class="k">INT NOT NULL</span>,
+  <span class="k">PRIMARY KEY</span> (id_pedido, id_produto));</code></pre>
+<p class="meta">Cada <code>REFERENCES</code> é uma <strong>chave estrangeira</strong>: uma coluna que aponta para a chave primária de outra tabela. <a href="sql/04_3fn.sql">Ver o script completo</a></p>
+<figure>
+  <svg viewBox="0 0 640 170" width="100%" role="img" aria-labelledby="t3 d3">
+    <title id="t3">Modelo na 3FN</title>
+    <desc id="d3">Cinco tabelas ligadas: ceps se liga a clientes, clientes a pedidos, pedidos a itens_pedido e produtos a itens_pedido.</desc>
+    <g fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--mut)">
+      <rect x="5" y="60" width="90" height="40" rx="4"/><rect x="135" y="60" width="100" height="40" rx="4"/>
+      <rect x="275" y="60" width="90" height="40" rx="4"/><rect x="405" y="60" width="110" height="40" rx="4"/>
+      <rect x="405" y="125" width="110" height="40" rx="4"/>
+      <path d="M95 80h40M235 80h40M365 80h40M460 100v25"/>
+    </g>
+    <text x="30" y="85">ceps</text><text x="165" y="85">clientes</text><text x="303" y="85">pedidos</text>
+    <text x="425" y="85">itens_pedido</text><text x="435" y="150">produtos</text>
+  </svg>
+  <figcaption>Figura 2. Modelo na 3FN. Cada fato (telefone, cidade, preço) agora vive em um só lugar, e as linhas conectam as tabelas por chaves estrangeiras.</figcaption>
+</figure>
+<p>Agora o telefone da Ana é alterado em <strong>uma</strong> linha de <code>clientes</code>. Um produto novo entra em <code>produtos</code> sem precisar de pedido. Apagar um pedido não apaga o preço. As três anomalias sumiram.</p>
+</section>
+
+<section id="bcnf">
+<h2>Quando a 3FN não basta: BCNF</h2>
+<p>Veja uma tabela de matrículas. Cada professor leciona uma única disciplina, e um aluno tem um único professor em cada disciplina.</p>
+<figure>
+  <div class="sc"><table aria-describedby="f3">
+    <tr><th>aluno</th><th>disciplina</th><th>professor</th></tr>
+    <tr><td>Ana</td><td class="hl">Banco de Dados</td><td class="hl">Prof. Lima</td></tr>
+    <tr><td>Bruno</td><td class="hl">Banco de Dados</td><td class="hl">Prof. Lima</td></tr>
+    <tr><td>Ana</td><td>Redes</td><td>Prof. Souza</td></tr>
+  </table></div>
+  <figcaption id="f3">Figura 3. A ligação "Prof. Lima, Banco de Dados" se repete para cada aluno matriculado.</figcaption>
+</figure>
+<p>Essa tabela já está na 3FN, mas ainda repete dados. Se o Prof. Lima passar a lecionar outra disciplina, teremos de alterar várias linhas. O motivo é <code>professor → disciplina</code>: o professor determina a disciplina, mas <strong>professor não é chave</strong> da tabela. A <strong>BCNF</strong> (forma normal de Boyce-Codd) exige que todo determinante seja chave. A correção:</p>
+<pre><code><span class="c">-- sql/05_bcnf_horarios.sql | PostgreSQL 16</span>
+<span class="k">CREATE TABLE</span> professores (professor <span class="k">VARCHAR</span>(60) <span class="k">PRIMARY KEY</span>, disciplina <span class="k">VARCHAR</span>(60));
+<span class="k">CREATE TABLE</span> matriculas  (aluno <span class="k">VARCHAR</span>(60),
+  professor <span class="k">VARCHAR</span>(60) <span class="k">REFERENCES</span> professores, <span class="k">PRIMARY KEY</span> (aluno, professor));</code></pre>
+<p class="meta"><a href="sql/05_bcnf_horarios.sql">Ver o script completo</a></p>
+<div class="note"><strong>Custo escondido.</strong> A regra "cada aluno tem um professor por disciplina" não é mais garantida pela estrutura. Em tabelas separadas, o banco deixaria um aluno ter dois professores da mesma disciplina. Esse é o limite da BCNF: ela às vezes não preserva todas as dependências, e então precisamos de uma regra extra (um gatilho, por exemplo).</div>
+<details>
+  <summary>Aprofundamento: definições formais</summary>
+  <p>Dada uma tabela R e conjuntos de colunas X e Y, dizemos que <code>X → Y</code> quando duas linhas com o mesmo X têm sempre o mesmo Y. Uma <strong>chave candidata</strong> é um conjunto mínimo de colunas que determina todas as outras. R está na <strong>3FN</strong> se, para cada dependência não trivial X → A, X é uma superchave ou A faz parte de alguma chave candidata. R está na <strong>BCNF</strong> se, para cada dependência não trivial X → A, X é uma superchave. Na tabela de matrículas, as chaves candidatas são (aluno, disciplina) e (aluno, professor). Por isso <code>disciplina</code> faz parte de uma chave, a 3FN aceita <code>professor → disciplina</code>, e a BCNF não.</p>
+</details>
+</section>
+
+<section id="erros">
+<h2>Erros comuns e limitações</h2>
+<ul>
+  <li><strong>Normalizar sem olhar os dados.</strong> Dependência funcional é uma regra do negócio, não do formato da tabela. Confirme com quem conhece a loja se "cada CEP tem uma cidade" é mesmo verdade.</li>
+  <li><strong>"Sempre normalize até a 3FN".</strong> Em relatórios e análises, tabelas achatadas costumam ser mais rápidas porque evitam junções. O custo é cuidar da consistência. Este assunto é a desnormalização, que merece um artigo próprio.</li>
+  <li><strong>Esquecer as chaves estrangeiras.</strong> Separar tabelas sem declarar <code>REFERENCES</code> traz de volta o problema que queríamos resolver.</li>
+  <li><strong>Limite deste texto.</strong> Não cobrimos a 4FN e a 5FN. Elas tratam de redundâncias que surgem quando uma tabela mistura fatos independentes.</li>
+</ul>
+</section>
+
+<section id="comecar">
+<h2>Como começar na área</h2>
+<p>Pegue uma planilha sua (de gastos, de estudos, de um time) e tente achar as dependências funcionais. Depois crie as tabelas no PostgreSQL, insira dados fictícios e tente provocar as três anomalias antes e depois da separação. Praticar com um exemplo que você conhece ensina mais do que decorar definições.</p>
+</section>
+
+<section id="links">
+<h2>Links para ler depois</h2>
+<ul>
+  <li><a href="https://www.postgresql.org/docs/current/ddl.html">PostgreSQL: definição de dados</a>. A documentação oficial de <code>CREATE TABLE</code>, chaves e restrições, com exemplos curtos.</li>
+  <li><a href="https://www.pgadmin.org/docs/">Documentação do pgAdmin</a>. Mostra como abrir o Query Tool e rodar os scripts deste artigo.</li>
+  <li><a href="https://sqlbolt.com/">SQLBolt</a>. Lições curtas de SQL com exercício logo depois da explicação, ótimo para revisar o básico.</li>
+  <li><a href="https://use-the-index-luke.com/">Use The Index, Luke</a>. Explica de forma clara como índices e junções afetam o desempenho, o próximo passo depois da normalização.</li>
+  <li><a href="https://modern-sql.com/">Modern SQL</a>. Compara recursos de SQL entre SGBDs, útil quando o script precisa rodar fora do PostgreSQL.</li>
+</ul>
+</section>
+
+<section id="refs">
+<h2>Referências</h2>
+<ol>
+  <li>CODD, E. F. A relational model of data for large shared data banks. <em>Communications of the ACM</em>, v. 13, n. 6, 1970. <a href="https://doi.org/10.1145/362384.362685">doi.org/10.1145/362384.362685</a></li>
+  <li>DATE, C. J. <em>Introdução a sistemas de bancos de dados</em>. [confirmar edição e editora usadas pelo grupo]</li>
+  <li>THE POSTGRESQL GLOBAL DEVELOPMENT GROUP. <em>PostgreSQL Documentation</em>. <a href="https://www.postgresql.org/docs/current/">postgresql.org/docs/current</a></li>
+</ol>
+</section>
+
+<section id="autores">
+<h2>Quem escreveu</h2>
+<!-- Publique apenas o que cada integrante autorizou. Adicione foto real com alt. -->
+<div class="cards">
+  <div class="card"><div class="av" aria-hidden="true">I</div><strong>[Nome 1]</strong><br>[Curso, semestre, área de interesse]<br><a href="https://github.com/isabellesouza0205-stack">GitHub</a> · <a href="#">LinkedIn</a></div>
+  <div class="card"><div class="av" aria-hidden="true">G</div><strong>Gabriel Venancio Lima</strong><br>[Curso, semestre, área de interesse]<br><a href="https://github.com/Bielods">GitHub</a> · <a href="#">LinkedIn</a></div>
+  <div class="card"><div class="av" aria-hidden="true">B</div><strong>[Nome 3]</strong><br>[Curso, semestre, área de interesse]<br><a href="#">GitHub</a> · <a href="#">LinkedIn</a></div>
+  <div class="card"><div class="av" aria-hidden="true">G</div><strong>Gustavo Oliveira Andrade</strong><br>[Curso, semestre, área de interesse]<br><a href="#">GitHub</a> · <a href="#">LinkedIn</a></div>
+</div>
+<p class="meta">As opiniões expressas nesta página são dos autores.</p>
+</section>
+</main>
+
+<footer>
+  <p>Licença: [escolher, ex.: CC BY 4.0 para o texto e MIT para o código] · Contato: pelos perfis do GitHub acima · Última revisão: 15/10/2026 · <a href="https://github.com/isabellesouza0205-stack/artigo_desnormaliza-o-">Repositório no GitHub</a></p>
+</footer>
+</body>
+</html>
