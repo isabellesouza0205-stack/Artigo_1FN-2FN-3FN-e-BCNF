@@ -9,9 +9,9 @@ Artigo técnico sobre desnormalização de bancos de dados, feito como página w
 
 ## Autores
 - Nome 1 (@isabellesouza0205)
-- Nome 2 (@Gabs4256)
+- Nome 2 (Gabriel Venancio Lima)
 - Nome 2 (@Bielods)
-- Nome 4 (@Tatiwesleygu)
+- Nome 4 (Gustavo Oliveira Andrade)
 
 ## Como rodar os scripts localmente
 - SGBD: PostgreSQL (versão a definir)
