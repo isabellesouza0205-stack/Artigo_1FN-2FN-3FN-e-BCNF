@@ -1,70 +1,53 @@
-# Da planilha bagunçada ao modelo relacional: 1FN, 2FN, 3FN e BCNF na prática
+# Da planilha bagunçada ao modelo relacional
 
-Artigo técnico sobre normalização de bancos de dados, feito como página web estática. Partimos de uma planilha de pedidos de uma loja, com dados repetidos, e a transformamos em tabelas menores, passando pela 1FN, 2FN e 3FN até chegar a um caso em que a 3FN não basta e a BCNF resolve.
+**1FN, 2FN, 3FN e BCNF na prática, com SQL no PostgreSQL 16**
 
-**Página publicada:** [colar aqui o link do GitHub Pages]
+Artigo técnico em formato de blog sobre normalização de bancos de dados, publicado como página web estática. Partimos de uma planilha de pedidos de uma loja virtual, cheia de dados repetidos, e mostramos como as formas normais a transformam em tabelas menores, passando pela 1FN, 2FN e 3FN até um caso em que a 3FN não basta e a BCNF resolve.
+
+🔗 **Página publicada:** https://artigofn.vercel.app/
 
 ## Público-alvo
 
 Estudantes de TI que sabem programar e já viram o básico de SQL, mas têm pouca experiência em modelagem de dados.
 
-## Autores
-
-| Nome | GitHub | LinkedIn |
-| [Nome completo da Isabelle] | [@isabellesouza0205-stack](https://github.com/isabellesouza0205-stack) |
-| Gabriel Venancio Lima | 
-| Gustavo Oliveira Andrade | [https://github.com/tatiwesleygu-boop] | 
-| [Nome do 4º integrante, se houver] | [link do GitHub] |
-
-Cada integrante autorizou a publicação do que aparece acima (nome, foto e perfis profissionais). As autorizações estão registradas pelo grupo.
 
 ## Conteúdo do artigo
 
-1. Introdução: o problema real da planilha com dados repetidos
-2. A planilha com problema e as anomalias de inserção, atualização e exclusão
-3. 1FN: valores atômicos
-4. 2FN: dependência parcial
-5. 3FN: dependência transitiva
-6. BCNF: quando a 3FN não basta (caso de horários)
-7. Erros comuns, limitações e como começar na área
-8. Referências
+1. **Introdução:** a planilha de pedidos com dados repetidos e as anomalias de atualização, inserção e exclusão
+2. **Conceitos:** chave primária, chave estrangeira e dependência funcional
+3. **1FN:** um valor por célula (valor atômico)
+4. **2FN:** dependência parcial
+5. **3FN:** dependência transitiva, com o SQL das tabelas `cliente` e `pedido`
+6. **BCNF:** quando a 3FN não basta (caso de horários de um curso)
+7. **Limites:** quando não normalizar e o que vem depois (4FN e 5FN)
+8. **Para ler mais** e **Referências**
 
-## Como rodar os scripts localmente
+## Recursos da página
 
-- **SGBD:** PostgreSQL [versão, ex.: 16], usando o pgAdmin 4
-- Crie um banco limpo (por exemplo, `normalizacao`).
-- Abra o Query Tool do pgAdmin e execute os arquivos da pasta `sql/` na ordem numérica:
+Feita só com HTML, CSS e JavaScript puros, sem bibliotecas nem dependências externas.
 
-| Arquivo | O que faz |
-| `01_planilha_inicial.sql` | Tabela única com dados repetidos e demonstração das anomalias |
-| `02_1fn.sql` | Aplica a 1FN (valores atômicos) |
-| `03_2fn.sql` | Remove dependências parciais |
-| `04_3fn.sql` | Remove dependências transitivas |
-| `05_bcnf_horarios.sql` | Caso de horários em que a BCNF resolve |
+- Índice lateral que destaca a seção que está sendo lida
+- Tema claro e escuro (segue o sistema e lembra a escolha)
+- Destaque de sintaxe nos blocos SQL, com botão de copiar
+- Barra de progresso de leitura e botão de voltar ao topo
+- Layout responsivo para celular
 
-Todos os dados dos scripts são **fictícios**. Para conferir a versão do seu banco, execute `SELECT version();`.
 
 ## Estrutura do repositório
 
 ```
 .
 ├── index.html     # página do artigo
-├── css/           # estilos
-├── img/           # imagens e diagramas
-├── sql/           # scripts SQL numerados
+├── css/
+│   └── style.css  # estilos (tema claro e escuro)
+├── js/
+│   └── main.js    # índice ativo, tema, destaque de SQL, progresso
+├── sql/           # scripts SQL numerados (a adicionar)
 └── README.md
 ```
 
-## Créditos
+## Referências
 
-**Referências**
-- Codd, E. F. *A Relational Model of Data for Large Shared Data Banks*. 1970.
-- Documentação oficial do PostgreSQL.
-- [adicionar as demais referências usadas no artigo]
-
-**Imagens**
-- [descrever cada imagem, autoria e licença]
-
-## Observação
-
-As opiniões expressas na página são dos autores.
+- BOYCE–Codd normal form. In: WIKIPEDIA. [s.d.]. Disponível em: https://en.wikipedia.org/wiki/Boyce%E2%80%93Codd_normal_form. Acesso em: 16 out. 2026.
+- GURU99. *Normalização de DBMS: exemplos de 1NF, 2NF, 3NF*. [s.d.]. Disponível em: https://www.guru99.com/pt/database-normalization.html. Acesso em: 16 out. 2026.
+- KENT, W. A Simple Guide to Five Normal Forms in Relational Database Theory. *Communications of the ACM*, v. 26, n. 2, p. 120-125, 1983. Disponível em: https://www.bkent.net/Doc/simple5.htm. Acesso em: 16 out. 2026.
